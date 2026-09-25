@@ -1455,10 +1455,15 @@ int main(int a_argc, char** a_argv)
 		float       maxFactor;
 		float       targetSpacing;
 		float       blanketSpacing;
+		float       raiseSpacing = 64.0f;
 	};
 	const Config configs[] = {
 		{ "shipped 64/2/8", 64.0f, 2.0f, 8.0f },
 		{ "user 16/8/8", 16.0f, 8.0f, 8.0f },
+		{ "tkl 16/12/16 r64", 16.0f, 12.0f, 16.0f, 64.0f },
+		{ "tkl 16/12/0 r64", 16.0f, 12.0f, 0.0f, 64.0f },
+		{ "tkl 16/12/16 r0", 16.0f, 12.0f, 16.0f, 0.0f },
+		{ "tkl 16/12/0 r0", 16.0f, 12.0f, 0.0f, 0.0f },
 	};
 
 	struct View
@@ -1500,6 +1505,7 @@ int main(int a_argc, char** a_argv)
 		Settings::tessellationMaxFactor = config.maxFactor;
 		Settings::tessellationTargetSpacing = config.targetSpacing;
 		Settings::tessellationBlanketSpacing = config.blanketSpacing;
+		Settings::tessellationRaiseSpacing = config.raiseSpacing;
 		for (auto& variant : variants) {
 			Build(variant, signature);
 		}
@@ -1687,6 +1693,7 @@ int main(int a_argc, char** a_argv)
 		Settings::tessellationMaxFactor = config.maxFactor;
 		Settings::tessellationTargetSpacing = config.targetSpacing;
 		Settings::tessellationBlanketSpacing = config.blanketSpacing;
+		Settings::tessellationRaiseSpacing = config.raiseSpacing;
 		for (auto& variant : flatVariants) {
 			Build(variant, signature);
 		}
