@@ -205,26 +205,22 @@ namespace BloodDecals
 				if (effect && Classify(effect)) { scan.blood.push_back(index); }
 			}
 		}
-		// A node's first pass from Contains() in a frame used to be a full one, so it compares the
-		// paths as well; later passes in the frame compare what they compared before.
-		//
-		// Every decal drawn under a node asked for a pass over the whole node, so a node of N
-		// decals cost N passes of N entries a frame; on actors with hundreds of skin decals that
-		// was most of the blood decal cost. Unless BloodDecalsRescanOnDraw is on, a node Update()
-		// scanned this frame, or that a draw already rescanned this frame, is not scanned again:
-		// a decal attached to it since then is drawn natively for the rest of the frame and found
-		// by the next Update().
+		// Rescans a node a decal was drawn under, at most once a frame and not at all when
+		// Update() already scanned it this frame. Every decal drawn under a node used to ask for
+		// a pass over the whole node, so a node of N decals cost N passes of N entries a frame;
+		// on actors with hundreds of skin decals that was most of the blood decal cost. A decal
+		// attached to a node after its scan this frame is drawn natively for the rest of the frame
+		// and found by the next Update(). The pass compares the paths as well, as a full one does.
 		void Rescan(RE::BGSDecalNode* node)
 		{
-			if (!Settings::bloodDecalsRescanOnDraw) {
-				const auto it = scanned.find(node);
-				if (it != scanned.end() && (it->second.listed == frame || it->second.drawn == frame)) { return; }
+			if (const auto it = scanned.find(node);
+				it != scanned.end() && (it->second.listed == frame || it->second.drawn == frame)) {
+				return;
 			}
 			Profiler::Tally(Profiler::Count::kBloodRescans);
 			auto& scan = scanned[node];
-			const bool first = scan.drawn != frame;
 			scan.drawn = frame;
-			Rescan(scan, node->GetRuntimeData().decals, first);
+			Rescan(scan, node->GetRuntimeData().decals, true);
 		}
 	}
 
@@ -308,7 +304,7 @@ namespace BloodDecals
 		// Place() turns down a skinned decal, so a skinned draw that is not a target yet cannot
 		// become one; its rescan could only place the node's other decals, which their own draws
 		// and the next Update() find. Skin decals on actors are most of the decal draws.
-		if (!Settings::bloodDecalsRescanOnDraw && geometry->GetGeometryRuntimeData().skinInstance) { return false; }
+		if (geometry->GetGeometryRuntimeData().skinInstance) { return false; }
 		auto* property = geometry->GetGeometryRuntimeData().shaderProperty.get();
 		using Flag = RE::BSShaderProperty::EShaderPropertyFlag;
 		return property && property->flags.any(Flag::kDecal, Flag::kDynamicDecal);
