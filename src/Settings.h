@@ -366,6 +366,9 @@ namespace Settings
 	inline bool enableBloodDecals{ true };
 
 	inline bool bloodDecalsIgnoreShaderIdentity{ true };
+	// 1 brings back the old draw path: every decal draw, skinned ones included, rescans its
+	// decal node. 0 trusts the scan Update() or an earlier draw made this frame.
+	inline bool bloodDecalsRescanOnDraw{ false };
 	inline std::string bloodDecalTexturePrefixes{ "blood,decalsblood,bigspatter" };
 
 	inline int debugPaintMask{ 0 };

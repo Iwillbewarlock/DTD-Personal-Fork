@@ -529,6 +529,8 @@ namespace Settings
 			enableBloodDecals = AsBool(value);
 		} else if (key == "BloodDecalsIgnoreShaderIdentity") {
 			bloodDecalsIgnoreShaderIdentity = AsBool(value);
+		} else if (key == "BloodDecalsRescanOnDraw") {
+			bloodDecalsRescanOnDraw = AsBool(value);
 		} else if (key == "BloodDecalTexturePrefixes") {
 			bloodDecalTexturePrefixes = value;
 		} else if (key == "AsyncShaderCompilation") {
