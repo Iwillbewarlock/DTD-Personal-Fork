@@ -44,6 +44,12 @@ namespace Profiler
 		kHookedDepth,
 		kHookedOtherUtility,
 		kHookedUtilityFull,
+
+		// Decal draws that asked BloodDecals::Contains() whether they are terrain blood, the
+		// decal node rescans those questions made, and the terrain blood targets Update() found.
+		kBloodChecks,
+		kBloodRescans,
+		kBloodTargets,
 		kCount
 	};
 
@@ -69,6 +75,7 @@ namespace Profiler
 		kObjectScan,
 		kShaderPrepare,
 		kMagicImpacts,
+		kBloodDecals,
 
 		kCount
 	};

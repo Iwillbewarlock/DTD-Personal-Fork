@@ -533,7 +533,8 @@ namespace Profiler
 			for (const auto& [scope, name] : {
 				std::pair{ CpuScope::kObjectScan, "Object scan CPU" },
 				std::pair{ CpuScope::kShaderPrepare, "Shader prepare CPU" },
-				std::pair{ CpuScope::kMagicImpacts, "Magic impacts CPU" } }) {
+				std::pair{ CpuScope::kMagicImpacts, "Magic impacts CPU" },
+				std::pair{ CpuScope::kBloodDecals, "Blood decals CPU" } }) {
 				const auto& sample = g_cpuMs[static_cast<size_t>(scope)];
 				logger::info("  {:18} avg {:7.3f} ms  p95 {:7.3f}  max {:7.3f}",
 					name, sample.Avg(), sample.P95(), sample.peak);
@@ -567,6 +568,13 @@ namespace Profiler
 				count(Count::kHookedLighting), count(Count::kHookedDepth),
 				count(Count::kHookedOtherUtility), count(Count::kHookedLightingFull),
 				count(Count::kHookedUtilityFull));
+
+			const double bloodChecks = count(Count::kBloodChecks);
+			if (Settings::enableBloodDecals || bloodChecks > 0.0) {
+				logger::info("  Blood decals      {:6.0f} draws checked  {:6.1f} node rescans  {:5.1f} "
+							 "terrain targets per frame",
+					bloodChecks, count(Count::kBloodRescans), count(Count::kBloodTargets));
+			}
 
 			const double staticSeen = count(Count::kStaticSeen);
 			if (staticSeen > 0.0) {

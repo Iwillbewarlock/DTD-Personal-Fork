@@ -4,6 +4,7 @@
 #include "PCH.h"
 #include "BloodDecals.h"
 #include "BloodDecalFilter.h"
+#include "Profiler.h"
 #include "Settings.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -208,6 +209,7 @@ namespace BloodDecals
 		// paths as well; later passes in the frame compare what they compared before.
 		void Rescan(RE::BGSDecalNode* node)
 		{
+			Profiler::Tally(Profiler::Count::kBloodRescans);
 			auto& scan = scanned[node];
 			const bool first = scan.drawn != frame;
 			scan.drawn = frame;
@@ -215,64 +217,77 @@ namespace BloodDecals
 		}
 	}
 
-	void Update()
+	namespace
 	{
-		targets.clear();
-		visited.clear();
-		++frame;
-		// New prefixes come with a reload, whose Reset() forgets the scans as well.
-		if (prefixSource != Settings::bloodDecalTexturePrefixes) { Forget(); }
-		if (!Settings::enableBloodDecals || !Settings::enableTessellation || !Settings::useClipmap) {
-			// Contains() can still rescan nodes; those scans last one frame, as before.
-			Forget();
-			return;
-		}
-		if (!reportedStart) {
-			reportedStart = true;
-			logger::info("Blood decals B4 enabled: direct lists and attached nodes, prefixes={}", Settings::bloodDecalTexturePrefixes);
-		}
-		auto* manager = RE::BGSDecalManager::GetSingleton();
-		if (!manager) {
-			if (reported.insert("no-manager").second) { logger::info("Blood decals B4: decal manager unavailable"); }
-			return;
-		}
-		// In the order the effects were observed before. An effect listed twice is classified
-		// twice, which places and reports nothing new.
-		Rescan(direct, manager->decals, true);
-		Rescan(simple, manager->simpleDecals, true);
-		size_t attached = 0;
-		for (const auto& node : manager->decalNodes) {
-			if (!node) { continue; }
-			const auto& effects = node->GetRuntimeData().decals;
-			attached += effects.size();
-			auto& scan = scanned[node.get()];
-			scan.listed = frame;
-			Rescan(scan, effects, true);
-		}
-		// A node neither listed nor drawn since the last frame starts again from a full pass.
-		std::erase_if(scanned, [](const auto& item) {
-			return std::max(item.second.listed, item.second.drawn) + 1 < frame;
-		});
-		// Only the census reads the count of distinct effects.
-		if (Logging()) {
-			for (const auto& effect : manager->decals) { if (effect) { visited.insert(effect.get()); } }
-			for (const auto& decal : manager->simpleDecals) { if (decal) { visited.insert(decal.get()); } }
+		void UpdateLists()
+		{
+			targets.clear();
+			visited.clear();
+			++frame;
+			// New prefixes come with a reload, whose Reset() forgets the scans as well.
+			if (prefixSource != Settings::bloodDecalTexturePrefixes) { Forget(); }
+			if (!Settings::enableBloodDecals || !Settings::enableTessellation || !Settings::useClipmap) {
+				// Contains() can still rescan nodes; those scans last one frame, as before.
+				Forget();
+				return;
+			}
+			if (!reportedStart) {
+				reportedStart = true;
+				logger::info("Blood decals B4 enabled: direct lists and attached nodes, prefixes={}", Settings::bloodDecalTexturePrefixes);
+			}
+			auto* manager = RE::BGSDecalManager::GetSingleton();
+			if (!manager) {
+				if (reported.insert("no-manager").second) { logger::info("Blood decals B4: decal manager unavailable"); }
+				return;
+			}
+			// In the order the effects were observed before. An effect listed twice is classified
+			// twice, which places and reports nothing new.
+			Rescan(direct, manager->decals, true);
+			Rescan(simple, manager->simpleDecals, true);
+			size_t attached = 0;
 			for (const auto& node : manager->decalNodes) {
 				if (!node) { continue; }
-				for (const auto& effect : node->GetRuntimeData().decals) {
-					if (effect) { visited.insert(effect.get()); }
+				const auto& effects = node->GetRuntimeData().decals;
+				attached += effects.size();
+				auto& scan = scanned[node.get()];
+				scan.listed = frame;
+				Rescan(scan, effects, true);
+			}
+			// A node neither listed nor drawn since the last frame starts again from a full pass.
+			std::erase_if(scanned, [](const auto& item) {
+				return std::max(item.second.listed, item.second.drawn) + 1 < frame;
+			});
+			Profiler::Tally(Profiler::Count::kBloodTargets, static_cast<uint32_t>(targets.size()));
+			// The census looks every five seconds and prints when the counts differ from its last
+			// line. Only it reads the count of distinct effects, so the set is filled only then.
+			const auto now = std::chrono::steady_clock::now();
+			if (now < nextCensus) { return; }
+			if (Logging()) {
+				for (const auto& effect : manager->decals) { if (effect) { visited.insert(effect.get()); } }
+				for (const auto& decal : manager->simpleDecals) { if (decal) { visited.insert(decal.get()); } }
+				for (const auto& node : manager->decalNodes) {
+					if (!node) { continue; }
+					for (const auto& effect : node->GetRuntimeData().decals) {
+						if (effect) { visited.insert(effect.get()); }
+					}
 				}
 			}
-		}
-		const std::array<size_t, 6> counts{ manager->decals.size(), manager->simpleDecals.size(),
-			manager->decalNodes.size(), attached, visited.size(), targets.size() };
-		const auto now = std::chrono::steady_clock::now();
-		if (now >= nextCensus && (counts != lastCounts || nextCensus.time_since_epoch().count() == 0)) {
-			logger::info("Blood decals B4 census: direct={} simple={} nodes={} attached={} unique={} terrainTargets={}",
-				counts[0], counts[1], counts[2], counts[3], counts[4], counts[5]);
-			lastCounts = counts;
+			const std::array<size_t, 6> counts{ manager->decals.size(), manager->simpleDecals.size(),
+				manager->decalNodes.size(), attached, visited.size(), targets.size() };
+			if (counts != lastCounts || nextCensus.time_since_epoch().count() == 0) {
+				logger::info("Blood decals B4 census: direct={} simple={} nodes={} attached={} unique={} terrainTargets={}",
+					counts[0], counts[1], counts[2], counts[3], counts[4], counts[5]);
+				lastCounts = counts;
+			}
 			nextCensus = now + std::chrono::seconds(5);
 		}
+	}
+
+	void Update()
+	{
+		const auto start = Profiler::Ticks();
+		UpdateLists();
+		Profiler::AddCpuTicks(Profiler::CpuScope::kBloodDecals, Profiler::Ticks() - start);
 	}
 
 	bool MaybeTarget(RE::BSGeometry* geometry)
@@ -289,9 +304,11 @@ namespace BloodDecals
 		// The draw hooks skip every draw MaybeTarget() turns down, so a new way for a draw to
 		// become a target has to be added there, not here.
 		if (!MaybeTarget(geometry)) { return false; }
+		Profiler::Tally(Profiler::Count::kBloodChecks);
 		if (targets.contains(geometry)) { return true; }
 		auto* property = geometry->GetGeometryRuntimeData().shaderProperty.get();
 
+		const auto start = Profiler::Ticks();
 		auto* parent = geometry->parent;
 		for (unsigned depth = 0; parent && depth < 8; ++depth, parent = parent->parent) {
 			if (auto* node = netimmerse_cast<RE::BGSDecalNode*>(parent)) {
@@ -299,6 +316,7 @@ namespace BloodDecals
 				break;
 			}
 		}
+		Profiler::AddCpuTicks(Profiler::CpuScope::kBloodDecals, Profiler::Ticks() - start);
 		if (targets.contains(geometry)) { return true; }
 
 		if (Settings::logDraws && reportedDrawTextures.size() < 32) {
