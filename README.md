@@ -1,5 +1,7 @@
 # Dynamic_Terrain_Deformation_Skse
 
+> **Unofficial personal fork.** This repository holds changes I made for my own use: mainly a fix for the blood decal scan cost (each decal node is scanned at most once per frame, skinned actor decals are skipped), plus earlier performance work (off-screen patch culling, edge factor snapping, clipmap group skipping, shelter ray skipping). It is not affiliated with or endorsed by the original author. The original mod is [Dynamic Terrain Deformation](https://www.nexusmods.com/skyrimspecialedition/mods/192402) by NearMidnightNow (NMN), and all credit for it belongs to them. Tested on one machine only (Skyrim SE 1.6.1170, RTX 3070 Laptop).
+
 Ground in Skyrim that actually takes a mark. Footprints, trenches through deep snow, wheel ruts, and blast craters are pressed into the landscape itself — real displaced geometry, not decals — and recover over time.
 
 A standalone SKSE plugin. **No Community Shaders dependency**; it works on vanilla Skyrim SE/AE, with or without ENB.
